@@ -1,2 +1,26 @@
-# pam-dm-tips
-Some tips and useful documentation to integrate PAM/DM to more subsystems.
+= pam-dm-tips
+Fernando Gonzalez Castellanos
+:toc:
+
+== Objective
+
+Some tips and useful documentation to integrate PAM/DM to more subsystems. PAM/DM must have 365 degrees of perspective. 
+We are not alone in the world.
+
+
+== Security
+
+Nowadays customers need implement authentication and authorization policies. My ryhme is "Security first than cops!"
+
+You are welcome to read some security tips in the security folder.
+
+== Installation
+
+TODO:
+
+== Openshift
+
+TODO:
+
+
+
