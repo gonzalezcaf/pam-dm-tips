@@ -1,0 +1,136 @@
+= Securing password of database user
+Fernando Gonzalez Castellanos
+:toc:
+
+== Objective
+
+El 99.999% de las empresas hoy en día no solo contratan un proyecto para instalación, configuración y puesta a punto, los departamentos de seguridad en cada organización solicitan su cuota de participación y ejecución de políticas en torno a productos y/o aplicaciones. PAM no es la excepción.
+
+PAM utiliza una base de datos para la gestión interna de las instancias de los procesos y tareas. La base de datos puede estar desplegada internamente en la misma infraestructura de PAM o externa. Algunos casos de uso implican tener una base de datos adicional para persistir información de negocio del proceso.
+
+Veamos cómo ofuscar el password del usuario de la base de datos usada por PAM:
+
+* En una instalación On Premise
+* En una instalación sobre Openshift
+
+
+TODO: PARA AJUSTAR Y REVISAR
+
+
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials-secret
+type: Opaque 
+data:
+  DB_USER_PWD: 
+
+
+oc create secret generic db-credentials-secret --from-literal=DB_USER_PWD=CIelnJ5!
+
+oc set env dc/pamdev-kieserver RHPAM_PASSWORD=
+
+
+oc patch dc pamdev-kieserver --type json -p '[{ "op": "remove", "path": "/spec/template/metadata/containers/env" }]'
+
+oc patch dc pamdev-kieserver --type='json' -p='[{"op": "replace", "path": "/spec/template/metadata/containers/env", "name": "RHPAM_PASSWORD" },{"op": "replace", "path": "/spec/template/metadata/labels/version", "value": "version2" }]'
+
+
+
+oc get dc pamdev-kieserver -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="RHPAM_PASSWORD")]}'
+
+oc set env dc/pamdev-kieserver RHPAM_PASSWORD-
+oc patch dc/pamdev-kieserver --type=json --patch '
+[
+  { 
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/env/-",
+    "value": {
+      "name": "RHPAM_PASSWORD2",
+      "valueFrom": {
+          "secretKeyRef": {
+              "key": "db-credentials-secret",
+              "value": "DB_USER_PWD"
+          }
+      }
+    }
+  }
+]
+'
+
+oc set env dc/pamdev-kieserver RHPAM_PASSWORD-
+oc patch dc/pamdev-kieserver --type=json --patch '[{"op": "add","path": "/spec/template/spec/containers/0/env/-","value": {"name": "RHPAM_PASSWORD2","valueFrom": {"secretKeyRef": {"key": "db-credentials-secret","value": "DB_USER_PWD"}}}}]'
+oc patch dc/pamdev-kieserver --type=json --patch '[{"op": "add","path": "/spec/template/spec/containers/0/env/-","value": {"name": "RHPAM_PASSWORD3","valueFrom":"RHPAM_PASSWORD3"}}]'
+oc patch dc/pamdev-kieserver --type=json --patch '[{"op": "add","path": "/spec/template/spec/containers/0/env/-","value": {"name": "RHPAM_PASSWORD4","valueFrom": {}}}]'
+
+oc patch dc/pamdev-kieserver --type=json --patch '[{"op": "add","path": "/spec/template/spec/containers/0/env/-","value": {"name": "RHPAM_PASSWORD2","valueFrom": {"secretKeyRef": {"name": "db-credentials-secret","key": "DB_USER_PWD"}}}}]'
+
+oc patch dc/pamdev-kieserver --type=json --patch '[{"op": "replace","path": "/spec/template/spec/containers/0/env/-","value": {"name": "RHPAM_PASSWORD2","valueFrom": {"secretKeyRef": {"name": "db-credentials-secret","key": "DB_USER_PWD"}}}}]'
+
+
+
+oc create secret generic db-credentials-secret --from-literal=DB_USER_PWD=CIelnJ5!
+oc rollout pause dc/pamdev-kieserver
+oc set env dc/pamdev-kieserver RHPAM_PASSWORD-
+oc patch dc/pamdev-kieserver --type=json --patch '[{"op": "add","path": "/spec/template/spec/containers/0/env/-","value": {"name": "RHPAM_PASSWORD","valueFrom": {"secretKeyRef": {"name": "db-credentials-secret","key": "DB_USER_PWD"}}}}]'
+oc rollout resume dc/pamdev-kieserver
+
+
+
+
+uSGisk3!
+
+
+
+<xa-datasource jndi-name="java:jboss/datasources/ext_pam_dev_ds" pool-name="ext_pam_dev_ds">
+                    <xa-datasource-property name="ServerName">
+                        nu0010001-decision-manager-dev-rds.crojoz1adgbk.us-east-1.rds.amazonaws.com
+                    </xa-datasource-property>
+                    <xa-datasource-property name="PortNumber">
+                        5432
+                    </xa-datasource-property>
+                    <xa-datasource-property name="DatabaseName">
+                        dm_pam_dev
+                    </xa-datasource-property>
+                    <xa-datasource-class>org.postgresql.xa.PGXADataSource</xa-datasource-class>
+                    <driver>postgresql</driver>
+                    <security>
+                        <user-name>cnxpamdmdev</user-name>
+                        <credential-reference store="store_claves" alias="pwd_db"/>
+                    </security>
+                    <validation>
+                        <valid-connection-checker class-name="org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLValidConnectionChecker"/>
+                        <validate-on-match>true</validate-on-match>
+                        <background-validation>false</background-validation>
+                        <exception-sorter class-name="org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLExceptionSorter"/>
+                    </validation>
+                </xa-datasource>
+
+        <xa-datasource jndi-name="java:jboss/datasources/ext_pam_dev_ds" pool-name="external-EXTERNAL" enabled="true" use-java-context="true" statistics-enabled="${wildfly.datasources.statistics-enabled:${wildfly.statistics-enabled:false}}">
+          <xa-datasource-property name="URL">nu0010001-decision-manager-dev-rds.crojoz1adgbk.us-east-1.rds.amazonaws.com:5432</xa-datasource-property>
+          <driver>postgresql</driver>
+          <security>
+            <user-name>cnxpamdmdev</user-name>
+            <password>RdFj6CKB0TuAt0sNgRxc</password>
+          </security>
+        </xa-datasource>
+
+
+
+oc create secret generic db-ext-credentials-secret --from-literal=DB_EXT_PWD=RdFj6CKB0TuAt0sNgRxc
+oc rollout pause dc/pamdev-kieserver
+oc set env dc/pamdev-kieserver EXTERNAL_DATABASE=dm_pam_dev EXTERNAL_JNDI=java:jboss/datasources/ext_pam_dev_ds EXTERNAL_DRIVER=postgresql EXTERNAL_USERNAME=cnxpamdmdev EXTERNAL_NONXA=false EXTERNAL_XA_CONNECTION_PROPERTY_URL=jdbc:postgresql://nu0010001-decision-manager-dev-rds.crojoz1adgbk.us-east-1.rds.amazonaws.com:5432/dm_pam_dev EXTERNAL_MIN_POOL_SIZE=10 EXTERNAL_MAX_POOL_SIZE=10 EXTERNAL_JTA=true EXTERNAL_CONNECTION_CHECKER=org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLValidConnectionChecker EXTERNAL_EXCEPTION_SORTER=org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLExceptionSorter EXTERNAL_BACKGROUND_VALIDATION=false EXTERNAL_BACKGROUND_VALIDATION_MILLIS=20000 DATASOURCES=RHPAM,EXTERNAL
+oc patch dc/pamdev-kieserver --type=json --patch '[{"op": "add","path": "/spec/template/spec/containers/0/env/-","value": {"name": "EXTERNAL_PASSWORD","valueFrom": {"secretKeyRef": {"name": "db-ext-credentials-secret","key": "DB_EXT_PWD"}}}}]'
+oc rollout resume dc/pamdev-kieserver
+
+oc rollout pause dc/pamdev-kieserver
+oc set env dc/pamdev-kieserver com.arjuna.ats.arjuna.allowMultipleLastResources-
+oc set env dc/pamdev-kieserver JAVA_OPTS_APPEND="-Dorg.jbpm.var.log.length=2000 -Dcom.arjuna.ats.arjuna.allowMultipleLastResources=true"
+oc rollout resume dc/pamdev-kieserver
+
+
+
+REDIRECT URI: https://sso-security.apps.dm.apps.bancolombia.com/auth/realms/pam-prod/broker/saml/endpoint
+
+
